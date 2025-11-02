@@ -1,0 +1,20 @@
+# OS files
+.DS_Store
+
+# terraform
+**.tfvars
+**.tfvars.json
+**.tfstate
+**.tfstate.*
+**.tfstate.backup
+**/.terraform/*
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# .pyc files
+__pycache__
+
+# environment files
+.env

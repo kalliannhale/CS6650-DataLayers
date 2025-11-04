@@ -124,6 +124,24 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+resource "aws_vpc_endpoint" "dynamodb_gateway_endpoint" {
+  service_name      = "com.amazonaws.${var.aws_region}.dynamodb"
+  vpc_endpoint_type = "Gateway"
+  
+  # Uses the VPC ID found by the data source
+  vpc_id = data.aws_vpc.default.id 
+
+  # The gateway endpoint must update the private route table used by Fargate subnets
+  route_table_ids = [aws_route_table.private.id]
+  
+  tags = {
+    Name = "${var.service_name}-dynamodb-endpoint"
+  }
+
+  # Ensure this endpoint is created before the tasks deploy
+  depends_on = [aws_route_table.private]
+}
+
 # --- Security Groups ---
 
 # Security Group for the ALB ("Front Door")

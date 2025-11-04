@@ -14,3 +14,8 @@ variable "container_port" {
 }
 */
 
+variable "aws_region" {
+  type        = string
+  description = "AWS region (for awslogs driver)"
+  }
+

@@ -37,12 +37,11 @@ type ErrorResponse struct {
 // We must match the teammate's API response
 type cartItemInfo struct {
 	ProductID int32 `json:"product_id"`
-	// Note: We cannot get 'product_name' without a JOIN,
-	// so we will omit it. This is a key SQL vs. NoSQL difference.
+	ProductName string `json:"product_name"`
 	Quantity uint `json:"quantity"`
 }
 type shoppingCartInfo struct {
-	CartID     string         `json:"cart_id"` // DYNAMODB: We use a string UUID
+	CartID     string         `json:"cart_id"` 
 	CustomerID uint64         `json:"customer_id"`
 	Status     string         `json:"status"`
 	Items      []cartItemInfo `json:"items"`
@@ -74,6 +73,7 @@ type cartItemData struct {
 	SK        string `dynamodbav:"SK"`
 	ProductID int32  `dynamodbav:"product_id"`
 	Quantity  uint   `dynamodbav:"quantity"`
+	ProductName string `dynamodbav:"product_name"`
 }
 
 func main() {
@@ -267,6 +267,7 @@ func getShoppingCart(c *gin.Context) {
 			attributevalue.UnmarshalMap(dbItem, &item)
 			response.Items = append(response.Items, cartItemInfo{
 				ProductID: item.ProductID,
+				ProductName: item.ProductName,
 				Quantity:  item.Quantity,
 			})
 		}
@@ -283,6 +284,10 @@ func getShoppingCart(c *gin.Context) {
 
 	// 4. Send Response
 	c.JSON(http.StatusOK, response)
+}
+
+func lookupProductName(productID int32) string {
+    return fmt.Sprintf("Widget #%d", productID)
 }
 
 /*
@@ -325,12 +330,14 @@ func updateItemToShoppingCart(c *gin.Context) {
 		// your teammate's "ON DUPLICATE KEY UPDATE".
 		// We will assume quantity > 0 for this.
 		if item.Quantity > 0 {
+			productName := lookupProductName(item.ProductID)
 			itemSK := fmt.Sprintf("ITEM#%d", item.ProductID)
 			dbItem := cartItemData{
 				PK:        cartPK,
 				SK:        itemSK,
 				ProductID: item.ProductID,
 				Quantity:  item.Quantity,
+				ProductName: productName,
 			}
 
 			marshalledItem, err := attributevalue.MarshalMap(dbItem)

@@ -3,6 +3,7 @@ module "network" {
   source       = "./modules/network"
   service_name = var.service_name
   container_port = var.container_port
+  aws_region   = var.aws_region
 }
 
 # Phase 1 ECR Repo

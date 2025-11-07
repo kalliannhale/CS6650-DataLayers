@@ -3,7 +3,7 @@ import time
 import json
 import os
 
-ALB_URL = os.environ.get("ALB_URL", "http://CS6650L2-alb-1026929027.us-east-1.elb.amazonaws.com")
+ALB_URL = os.environ.get("ALB_URL", "http://CS6650L2-alb-671481294.us-east-1.elb.amazonaws.com")
 API_URL = f"{ALB_URL}/shopping-carts"
 
 results = []

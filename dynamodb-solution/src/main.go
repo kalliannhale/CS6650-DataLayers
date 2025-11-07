@@ -22,10 +22,6 @@ import (
 var dbClient *dynamodb.Client
 var tableName string
 
-// ---
-// Structs (Matching your teammate's API)
-// ---
-
 // ErrorResponse struct
 type ErrorResponse struct {
 	Err     string `json:"error"`
@@ -33,11 +29,9 @@ type ErrorResponse struct {
 	Details string `json:"details"`
 }
 
-// Structs for GET /shopping-carts/:id
-// We must match the teammate's API response
 type cartItemInfo struct {
 	ProductID int32 `json:"product_id"`
-	ProductName string `json:"product_name"`
+	// ProductName string `json:"product_name"`
 	Quantity uint `json:"quantity"`
 }
 type shoppingCartInfo struct {
@@ -56,9 +50,6 @@ type updateCartItemsRequest struct {
 	Items []updateCartItem `json:"items" binding:"required"`
 }
 
-// ---
-// DynamoDB Internal Structs (for mapping)
-// ---
 type cartMetadata struct {
 	PK         string `dynamodbav:"PK"`
 	SK         string `dynamodbav:"SK"`
@@ -73,7 +64,7 @@ type cartItemData struct {
 	SK        string `dynamodbav:"SK"`
 	ProductID int32  `dynamodbav:"product_id"`
 	Quantity  uint   `dynamodbav:"quantity"`
-	ProductName string `dynamodbav:"product_name"`
+	//ProductName string `dynamodbav:"product_name"`
 }
 
 func main() {
@@ -116,9 +107,6 @@ func InitDB() {
 	log.Printf("Successfully connected to DynamoDB. Using table: %s", tableName)
 }
 
-// ---
-// API Handlers (DynamoDB Version)
-// ---
 
 /*
 POST /shopping-carts
@@ -158,7 +146,7 @@ func createShoppingCart(c *gin.Context) {
 		GSI1SK:     cartPK,
 		CartID:     cartID,
 		CustomerID: req.CustomerID,
-		Status:     "active", // Default to active, just like teammate
+		Status:     "active", 
 	}
 
 	dbItem, err := attributevalue.MarshalMap(meta)
@@ -175,7 +163,7 @@ func createShoppingCart(c *gin.Context) {
 	_, err = dbClient.PutItem(c.Request.Context(), &dynamodb.PutItemInput{
 		TableName:           aws.String(tableName),
 		Item:                dbItem,
-		ConditionExpression: aws.String("attribute_not_exists(PK)"), // Fail if cart ID already exists
+		ConditionExpression: aws.String("attribute_not_exists(PK)"), 
 	})
 
 	if err != nil {
@@ -267,7 +255,7 @@ func getShoppingCart(c *gin.Context) {
 			attributevalue.UnmarshalMap(dbItem, &item)
 			response.Items = append(response.Items, cartItemInfo{
 				ProductID: item.ProductID,
-				ProductName: item.ProductName,
+				//ProductName: item.ProductName,
 				Quantity:  item.Quantity,
 			})
 		}
@@ -298,7 +286,7 @@ func updateItemToShoppingCart(c *gin.Context) {
 	// 1. Parse Cart ID
 	cartIDStr := c.Param("id")
 
-	// 2. Parse Request Body (Identical to teammate)
+	// 2. Parse Request Body 
 	var req updateCartItemsRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -309,12 +297,11 @@ func updateItemToShoppingCart(c *gin.Context) {
 		return
 	}
 
-	// 3. Write to DynamoDB using BatchWriteItem
-	// This is the NoSQL equivalent of your teammate's "INSERT...ON DUPLICATE KEY UPDATE"
+	
 	cartPK := fmt.Sprintf("CART#%s", cartIDStr)
 	writeRequests := []types.WriteRequest{}
 
-	// Check for duplicates in the request, just like your teammate
+	// Check for duplicates in the request
 	seen := make(map[int32]bool)
 	for _, item := range req.Items {
 		if seen[item.ProductID] {
@@ -325,19 +312,23 @@ func updateItemToShoppingCart(c *gin.Context) {
 			return
 		}
 		seen[item.ProductID] = true
+		itemSK := fmt.Sprintf("ITEM#%d", item.ProductID)
+		keyMap := map[string]types.AttributeValue{
+			"PK": &types.AttributeValueMemberS{Value: cartPK},
+			"SK": &types.AttributeValueMemberS{Value: itemSK},
+		}
 
-		// DynamoDB "Put" will create or overwrite, just like
-		// your teammate's "ON DUPLICATE KEY UPDATE".
+		// DynamoDB "Put" will create or overwrite
 		// We will assume quantity > 0 for this.
 		if item.Quantity > 0 {
-			productName := lookupProductName(item.ProductID)
+			//productName := lookupProductName(item.ProductID)
 			itemSK := fmt.Sprintf("ITEM#%d", item.ProductID)
 			dbItem := cartItemData{
 				PK:        cartPK,
 				SK:        itemSK,
 				ProductID: item.ProductID,
 				Quantity:  item.Quantity,
-				ProductName: productName,
+				//ProductName: productName,
 			}
 
 			marshalledItem, err := attributevalue.MarshalMap(dbItem)
@@ -349,8 +340,14 @@ func updateItemToShoppingCart(c *gin.Context) {
 			writeRequests = append(writeRequests, types.WriteRequest{
 				PutRequest: &types.PutRequest{Item: marshalledItem},
 			})
+		}else {
+			// ** REMOVE Logic: Quantity = 0 **
+			// Prepare a DeleteRequest. The keyMap defined above is sufficient.
+			writeRequests = append(writeRequests, types.WriteRequest{
+				DeleteRequest: &types.DeleteRequest{Key: keyMap},
+			})
 		}
-		// Note: We're not handling deletes (quantity=0), but neither is your teammate.
+		
 	}
 
 	// Check if there's anything to write
